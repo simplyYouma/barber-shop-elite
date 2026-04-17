@@ -1,0 +1,10 @@
+# Dependencies
+node_modules/
+dist/
+.env
+
+# Rust
+src-tauri/target/
+
+# Tauri
+src-tauri/gen/

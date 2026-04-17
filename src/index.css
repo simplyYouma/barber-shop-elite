@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@300;400;500;700;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* ===== YUMI SECURITY CORE (NE PAS MODIFIER) ===== */
+  --color-brand-red: #E11D48;
+  --color-security-primary: var(--color-brand-red);
+  --color-security-dark: #0F172A;
+  --color-security-light: #F8FAFC;
+
+  /* ===== THEME EDITORIAL LIGHT (BARBER PREMIUM) ===== */
+  --color-primary: #000000;           /* Noir Pur */
+  --color-primary-soft: #1A1A1A;      /* Noir Atténué */
+  --color-background: #FAFAFA;        /* Blanc Cassé */
+  --color-background-soft: #F0F0F0;   /* Gris Très Clair */
+  --color-foreground: #0A0A0A;        /* Noir Profond */
+  --color-steel: #DEDEDE;             /* Gris Acier / Bordures */
+  --color-luxury: #8A8A8A;            /* Gris Sourd / Accents */
+
+  /* ===== TYPOGRAPHIES ===== */
+  --font-serif: "Playfair Display", serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  /* ===== ANIMATIONS ===== */
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  --animate-fade-up: fade-up 0.4s ease-out forwards;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* ===== UTILITAIRES EDITORIAUX (PREMIUM) ===== */
+
+/* Titre Editorial — Serif, espacement large */
+.text-editorial-title {
+  font-family: var(--font-serif);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-transform: capitalize;
+}
+
+/* Texte de Luxe — Haute lisibilité, tracking large */
+.text-luxury {
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 500;
+  font-size: 10px;
+  color: var(--color-luxury);
+}
+
+/* Carte Éditoriale — Minimaliste, ombres discrètes */
+.card-editorial {
+  background: white;
+  border: 1px solid var(--color-steel);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-editorial:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.04);
+  transform: translateY(-2px);
+}
+
+/* Bouton Premium — Contraste maximal */
+.btn-premium {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.8rem 2.5rem;
+  background: var(--color-primary);
+  color: white;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  border: 1px solid var(--color-primary);
+}
+.btn-premium:hover {
+  background: white;
+  color: var(--color-primary);
+}
+.btn-premium:active { transform: scale(0.98); }
+
+/* Scrollbar Minimaliste Élite — Global & Subtil */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-steel) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-steel);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-luxury);
+}
+
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-steel); border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--color-luxury); }
+
+/* ===== UTILITAIRES DE RESPONSIVITÉ ===== */
+
+.sidebar-transition {
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.text-nowrap {
+  white-space: nowrap;
+}
+
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+

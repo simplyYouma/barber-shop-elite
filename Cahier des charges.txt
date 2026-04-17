@@ -1,0 +1,215 @@
+💈 CAHIER DE CHARGE — BARBER SYSTEM (VERSION ELITE)
+🎯 1. VISION PRODUIT
+
+Créer un système de gestion complet pour barber shop moderne, conçu pour :
+
+rapidité en situation réelle (clients qui attendent)
+image premium (branding fort)
+contrôle business (revenus, performance)
+expérience client fluide
+
+👉 Ce n’est pas un logiciel.
+👉 C’est l’outil central du salon.
+
+🧱 2. ARCHITECTURE GLOBALE
+Stack
+Desktop : Tauri
+Frontend : React + Tailwind
+State : Zustand
+DB : SQLite (local)
+Backend : Tauri Commands (Rust)
+🎨 3. DESIGN SYSTEM
+🎯 Direction artistique
+
+Style :
+
+Brut
+Masculin
+Minimal
+Premium
+🎨 Couleurs
+Noir profond → #0B0B0B
+Noir charbon → #121212
+Blanc cassé → #F5F5F5
+Gris acier → #2C2C2C
+Accent or / cuivre → #C6A15B
+🔤 Typographie
+Titres : Serif luxe (style magazine)
+Texte : Sans-serif moderne
+🧠 Sensation
+
+👉 “Salon haut de gamme à la lumière tamisée”
+
+🔐 4. AUTHENTIFICATION (LOGIN)
+Objectif
+
+Contrôler l’accès + tracer les actions
+
+Rôles
+1. Admin (propriétaire)
+accès total
+stats
+gestion utilisateurs
+paramétrage
+2. Barber
+voir clients
+gérer sessions
+encaisser
+Fonctionnalités
+login / logout
+session persistante
+verrouillage auto (inactivité)
+journal des connexions
+💈 5. MODULE PRINCIPAL : POS BARBER
+🎯 Objectif
+
+Encaissement rapide, zéro friction
+
+Interface
+grille services (coupe, barbe, etc.)
+panier dynamique
+bouton paiement
+Services types
+Coupe simple
+Coupe + barbe
+Barbe seule
+Coupe premium
+Paiement
+espèces
+mobile money (optionnel)
+statut payé / non payé
+Bonus
+ajout rapide sans passer par admin
+modification prix à la volée
+👤 6. GESTION CLIENTS
+Données
+nom
+téléphone
+historique
+fréquence visite
+Fonctions
+recherche rapide
+ajout client en 2 secondes
+historique complet
+Stats client
+nombre de visites
+total dépensé
+dernier passage
+📊 7. DASHBOARD ADMIN
+KPIs
+chiffre du jour
+chiffre semaine
+chiffre mois
+nombre clients
+Performance barbers
+CA par barber
+nombre de coupes
+panier moyen
+Heures fortes
+moments de forte affluence
+📅 8. GESTION FILE / RENDEZ-VOUS
+Mode simple (réalité terrain)
+
+👉 pas besoin d’agenda compliqué
+
+Fonctionnement
+client arrive → ajouté à la file
+statut :
+en attente
+en cours
+terminé
+Chronométrie stricte & dynamique (Temps d'attente / Exécution) :
+👉 Si durée < 1 minute : affichage strict en secondes (ex: 45 s)
+👉 Si durée < 1 heure : affichage en minutes et secondes (ex: 14m 30s ou 14 min)
+👉 Si durée >= 1 heure : affichage en heures et minutes (ex: 1h 14m)
+Option avancée
+prise de RDV (si besoin futur)
+🧾 9. GÉNÉRATION TICKET CLIENT
+Format
+
+👉 PDF premium
+
+Contenu
+nom client
+service
+prix
+date
+barber
+QR code discret
+Actions
+aperçu
+envoyer via WhatsApp
+téléchargement
+🔔 10. NOTIFICATIONS (LOCAL)
+Cas
+client en attente trop longtemps
+fin de service
+objectif atteint
+📦 11. BACKUPS & SÉCURITÉ
+Automatique
+backup à la fermeture
+rotation (7 jours)
+Manuel
+bouton exporter données
+🔐 12. LICENCE & SÉCURITÉ
+système licence par machine
+activation via clé
+blocage possible (kill switch)
+mode offline supporté
+⚙️ 13. PARAMÈTRES
+nom du salon
+logo
+devise
+durée session
+gestion services
+📁 14. STRUCTURE LOGIQUE
+
+Modules :
+
+Auth
+POS
+Clients
+Dashboard
+Settings
+Logs
+🧪 15. STABILITÉ & QUALITÉ
+
+À garantir :
+
+aucune perte de données
+DB toujours cohérente
+migrations safe (ALTER TABLE uniquement)
+logs propres
+🚀 16. ROADMAP FUTURE (IMPORTANT)
+Phase 2
+version mobile client (tracking)
+sync cloud (optionnel)
+multi-device
+Phase 3
+abonnement SaaS
+dashboard global (tous tes clients)
+🧠 17. POSITIONNEMENT BUSINESS
+
+👉 Ce produit doit être :
+
+simple pour l’utilisateur
+complexe sous le capot
+
+👉 ton avantage :
+
+tu comprends le terrain africain
+
+👉 donc ton système doit :
+
+fonctionner sans internet
+être rapide
+être compréhensible en 5 minutes
+🔥 CONCLUSION
+
+Tu construis :
+
+👉 une suite métier (restau, tailor, barber…)
+
+👉 avec une base commune :
+
+POS + Clients + Stats + Licence
