@@ -20,7 +20,7 @@ export const AgendaModule: React.FC = () => {
   const { clients } = useClientStore();
   const { services } = useServiceStore();
   const { showToast, showAlert } = useNotificationStore();
-  const { appointments, addAppointment, updateAppointment, deleteAppointment } = useAppointmentStore();
+  const { appointments, addAppointment, updateAppointment, deleteAppointment, isLoading } = useAppointmentStore();
   const { removeAppointmentFromQueue } = useQueueStore();
   
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
@@ -205,6 +205,15 @@ export const AgendaModule: React.FC = () => {
 
   return (
     <div ref={containerRef} className="h-full flex flex-col bg-white animate-fade-up relative overflow-hidden">
+      {isLoading && (
+        <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-[200] flex items-center justify-center">
+           <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-black border-t-luxury animate-spin rounded-full"></div>
+              <p className="text-[10px] font-bold uppercase tracking-widest animate-pulse text-black">Synchronisation de l'agenda...</p>
+           </div>
+        </div>
+      )}
+
       {/* Header Agenda */}
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 lg:p-8 border-b border-steel gap-6 bg-white sticky top-0 z-[30]">
         <div className="space-y-1">

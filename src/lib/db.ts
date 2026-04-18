@@ -111,6 +111,23 @@ export async function initDatabase() {
         created_at    TEXT DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // 8. RENDEZ-VOUS (APPOINTMENTS)
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS appointments (
+        id            TEXT PRIMARY KEY,
+        day           TEXT NOT NULL, -- ISO String
+        hour          INTEGER NOT NULL,
+        client_name   TEXT NOT NULL,
+        service_id    TEXT,
+        service_name  TEXT NOT NULL,
+        price         INTEGER,
+        staff_id      TEXT,
+        staff_name    TEXT NOT NULL,
+        note          TEXT,
+        status        TEXT DEFAULT 'confirmed'
+      );
+    `);
  
      // =============================================
      // MIGRATIONS (Mise à jour du schéma existant)

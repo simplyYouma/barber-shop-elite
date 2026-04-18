@@ -52,7 +52,7 @@ function App() {
   const { fetchServices } = useServiceStore();
   const { fetchQueue, checkAndArchive } = useQueueStore();
   const { fetchArchives } = useArchiveStore();
-  const { appointments } = useAppointmentStore();
+  const { appointments, fetchAppointments } = useAppointmentStore();
   const { salon_name, salon_logo, salon_logo_theme } = useSettingsStore();
   
   const [activeTab, setActiveTab] = useState<Tab>('pos');
@@ -74,17 +74,23 @@ function App() {
       fetchStaff();
       fetchClients();
       fetchServices();
-      fetchQueue().then(() => {
-         useQueueStore.getState().syncAllAppointments(appointments);
-      });
       fetchArchives();
+      
+      // Chargement séquentiel pour l'agenda et la file
+      fetchAppointments().then(() => {
+         fetchQueue().then(() => {
+            // Une fois que tout est chargé, on synchronise
+            const appts = useAppointmentStore.getState().appointments;
+            useQueueStore.getState().syncAllAppointments(appts);
+         });
+      });
 
        // Sécurité : S'assurer que les permissions incluent l'agenda si manquant
        if (permissions[user.role] && permissions[user.role].agenda === undefined) {
           (permissions[user.role] as any).agenda = true;
        }
     }
-  }, [isAuthenticated, user, fetchStaff, fetchClients, fetchServices, fetchQueue, fetchArchives, permissions]);
+  }, [isAuthenticated, user, fetchStaff, fetchClients, fetchServices, fetchQueue, fetchArchives, fetchAppointments, permissions]);
 
   const resetInactivityTimer = useCallback(() => {
     if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
