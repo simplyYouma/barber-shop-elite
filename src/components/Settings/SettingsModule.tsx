@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { Store, Scissors, Users, Globe, ShieldCheck, Save, Plus, Trash2, Image as ImageIcon, Phone, Mail, Check, Key, User as UserIcon, ShieldOff, Lock, Pencil, Eye, EyeOff, RefreshCcw, Link as LinkIcon, ScrollText, Clock } from 'lucide-react';
+import { Store, Scissors, Users, Globe, ShieldCheck, Save, Plus, Trash2, Image as ImageIcon, Phone, Mail, Check, Key, User as UserIcon, ShieldOff, Lock, Pencil, Eye, EyeOff, RefreshCcw, Link as LinkIcon, ScrollText, Clock, Award } from 'lucide-react';
 import { useServiceStore } from '@/store/useServiceStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { useStaffStore } from '@/store/useStaffStore';
 import { useAuthStore, type RolePermissions } from '@/store/useAuthStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { getLogs, clearAuditLogs, type AuditLog } from '@/lib/auditService';
+import { getDb } from '@/lib/db';
 import type { JobSkill, SystemRole } from '@/types';
 // Nouvelles Sections Modulaires
 import { SessionSection } from './sections/SessionSection';
@@ -13,16 +14,14 @@ import { LicenseSection } from './sections/LicenseSection';
 import { MaintenanceSection } from './sections/MaintenanceSection';
 import { AuditSection } from './sections/AuditSection';
 
-// Importation des visuels par défaut (Presets)
-import haircutImg from '@/assets/services/haircut.png';
-import beardImg from '@/assets/services/beard.png';
-import facialImg from '@/assets/services/facial.png';
-import shampooImg from '@/assets/services/shampoo.png';
+interface SettingsModuleProps {
+  onCollapseSidebar?: (collapsed: boolean) => void;
+}
 
-export const SettingsModule: React.FC = () => {
-   const [activeSection, setActiveSection] = useState<'general' | 'services' | 'staff' | 'security' | 'audit' | 'session' | 'license' | 'maintenance'>('general');
+export const SettingsModule: React.FC<SettingsModuleProps> = ({ onCollapseSidebar }) => {
+   const [activeSection, setActiveSection] = useState<'general' | 'services' | 'staff' | 'skills' | 'security' | 'audit' | 'session' | 'license' | 'maintenance'>('general');
    const { services, addService, removeService, updateService } = useServiceStore();
-   const { staff, addStaff, removeStaff, updateStaff, toggleBlock } = useStaffStore();
+   const { staff, addStaff, removeStaff, updateStaff, toggleBlock, fetchStaff } = useStaffStore();
    const { showAlert, showToast } = useNotificationStore();
    const { user, permissions, updatePermissions } = useAuthStore();
    const settings = useSettingsStore();
@@ -33,7 +32,7 @@ export const SettingsModule: React.FC = () => {
    const [showAddModal, setShowAddModal] = useState(false);
    const [newName, setNewName] = useState('');
    const [newPrice, setNewPrice] = useState('');
-   const [selectedImage, setSelectedImage] = useState<string>(haircutImg);
+   const [selectedImage, setSelectedImage] = useState<string>('');
    const [customImage, setCustomImage] = useState<string | null>(null);
    const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
 
@@ -64,13 +63,16 @@ export const SettingsModule: React.FC = () => {
    const staffFileInputRef = useRef<HTMLInputElement>(null);
    const logoInputRef = useRef<HTMLInputElement>(null);
 
-   const JOB_SKILLS: { key: JobSkill; label: string }[] = [
-      { key: 'barbier', label: 'Maître Barbier' },
-      { key: 'coiffeur', label: 'Coiffeur-Visagiste' },
-      { key: 'masseur', label: 'Praticien Bien-être' },
-      { key: 'facialiste', label: 'Soins Esthétiques' },
-      { key: 'onglerie', label: 'Expert Onglerie' },
-   ];
+   const [newSkillLabel, setNewSkillLabel] = useState('');
+   
+   // Auto-collapse sidebar when license is opened
+   React.useEffect(() => {
+      if (activeSection === 'license' && onCollapseSidebar) {
+         onCollapseSidebar(true);
+      }
+   }, [activeSection, onCollapseSidebar]);
+
+   const JOB_SKILLS = settings.job_skills;
 
    const SYSTEM_ROLES: { key: SystemRole; label: string; desc: string }[] = [
       { key: 'admin', label: 'Administrateur', desc: 'Accès total au système et réglages' },
@@ -78,12 +80,24 @@ export const SettingsModule: React.FC = () => {
       { key: 'employe', label: 'Employé', desc: 'Accès limité au POS et file d\'attente' },
    ];
 
-   const PRESETS = [
-      { name: 'Coupe', url: haircutImg },
-      { name: 'Barbe', url: beardImg },
-      { name: 'Soin', url: facialImg },
-      { name: 'Shampooing', url: shampooImg },
-   ];
+   const PRESETS = settings.service_presets;
+
+   const handleRemovePreset = (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      showAlert({
+         title: 'Retirer de la Galerie',
+         message: 'Voulez-vous retirer cette image de vos choix par défaut ? L\'image restera accessible si déjà utilisée, mais ne sera plus proposée pour les nouvelles prestations.',
+         confirmLabel: 'RETIRER',
+         cancelLabel: 'ANNULER',
+         isConfirm: true,
+         onConfirm: () => {
+            updateSalonSettings({ 
+               service_presets: settings.service_presets.filter(p => p.id !== id) 
+            });
+            showToast('Image retirée de la sélection', 'info');
+         }
+      });
+   };
 
    const handleAddService = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -114,7 +128,7 @@ export const SettingsModule: React.FC = () => {
    const resetServiceForm = () => {
       setNewName('');
       setNewPrice('');
-      setSelectedImage(haircutImg);
+      setSelectedImage(PRESETS[0]?.url || '');
       setCustomImage(null);
       setEditingServiceId(null);
    };
@@ -138,7 +152,14 @@ export const SettingsModule: React.FC = () => {
          const reader = new FileReader();
          reader.onloadend = () => {
             if (target === 'service') {
-               setCustomImage(reader.result as string);
+               const b64 = reader.result as string;
+               setCustomImage(b64);
+               // Ajout automatique à la galerie pour réutilisation
+               const newPreset = { id: 'custom-' + Math.random().toString(36).substr(2, 9), url: b64 };
+               updateSalonSettings({ 
+                  service_presets: [...settings.service_presets, newPreset] 
+               });
+               showToast('Image ajoutée à la galerie', 'info');
             } else if (target === 'staff') {
                setStaffAvatar(reader.result as string);
             } else if (target === 'logo') {
@@ -199,6 +220,65 @@ export const SettingsModule: React.FC = () => {
       }
    };
 
+   const handleAddSkill = () => {
+      if (!newSkillLabel.trim()) return;
+      const id = newSkillLabel.toLowerCase().trim().replace(/\s+/g, '_');
+      
+      if (JOB_SKILLS.find(s => s.id === id)) {
+         showToast('Cette compétence existe déjà', 'info');
+         return;
+      }
+
+      const updatedSkills = [...JOB_SKILLS, { id, label: newSkillLabel.trim() }];
+      updateSalonSettings({ job_skills: updatedSkills });
+      setNewSkillLabel('');
+      showToast('Compétence ajoutée au catalogue', 'success');
+   };
+
+   const handleRemoveSkill = (id: string, label: string) => {
+      showAlert({
+         title: 'Supprimer la compétence',
+         message: `Voulez-vous retirer "${label}" du référentiel ? Cette compétence sera également supprimée du profil de TOUS les employés qui la possèdent actuellement.`,
+         confirmLabel: 'SUPPRIMER',
+         cancelLabel: 'ANNULER',
+         isConfirm: true,
+         onConfirm: async () => {
+            try {
+               // 1. Mise à jour des réglages
+               const updatedSkills = JOB_SKILLS.filter(s => s.id !== id);
+               updateSalonSettings({ job_skills: updatedSkills });
+
+               // 2. Nettoyage chez les employés dans la DB
+               const db = await getDb();
+               
+               for (const member of staff) {
+                  if (member.skills.includes(id)) {
+                     const newSkills = member.skills.filter(s => s !== id);
+                     await db.execute(
+                        'UPDATE staff SET skills = ? WHERE id = ?',
+                        [JSON.stringify(newSkills), member.id]
+                     );
+                  }
+               }
+               
+               // 3. Rafraîchir le store staff pour refléter les changements
+               await fetchStaff();
+
+               showToast('Compétence et profils mis à jour', 'success');
+               
+               // Log audit global
+               import('@/lib/auditService').then(({ logAction }) => {
+                  logAction('NETTOYAGE_COMPETENCE', 'settings', 'global', `Suppression de la compétence "${label}" et retrait automatique sur l'ensemble du personnel.`);
+               });
+               
+            } catch (err) {
+               console.error(err);
+               showToast('Erreur lors du nettoyage', 'error');
+            }
+         }
+      });
+   };
+
    const resetStaffForm = () => {
       setStaffName('');
       setStaffPhone('');
@@ -232,10 +312,24 @@ export const SettingsModule: React.FC = () => {
    };
 
    const confirmDeleteStaff = (id: string, name: string) => {
+      // SÉCURITÉ : Empêcher de supprimer le dernier administrateur
+      const admins = staff.filter(s => s.systemRole === 'admin');
+      const targetMember = staff.find(s => s.id === id);
+      
+      if (targetMember?.systemRole === 'admin' && admins.length <= 1) {
+         showAlert({
+            title: 'Action Bloquée',
+            message: 'Le système doit posséder au moins un profil Administrateur. Pour supprimer ce compte, créez d\'abord son remplaçant.',
+            confirmLabel: 'COMPRIS',
+            isConfirm: false
+         });
+         return;
+      }
+
       showAlert({
          title: 'Retrait du personnel',
-         message: `Voulez-vous vraiment retirer ${name} de l'équipe Barber Shop ?`,
-         confirmLabel: 'RETIRER',
+         message: `Voulez-vous vraiment retirer ${name} de l'équipe Barber Shop ? Cette action est irréversible.`,
+         confirmLabel: 'RETIRER DÉFINITIVEMENT',
          cancelLabel: 'ANNULER',
          isConfirm: true,
          onConfirm: () => {
@@ -302,6 +396,7 @@ export const SettingsModule: React.FC = () => {
                   { id: 'general', label: 'Établissement', icon: Store },
                   { id: 'services', label: 'Prestations', icon: Scissors },
                   { id: 'staff', label: 'Équipe Elite', icon: Users },
+                  { id: 'skills', label: 'Compétences', icon: Award },
                ].map((tab) => (
                   <button
                      key={tab.id}
@@ -663,7 +758,7 @@ export const SettingsModule: React.FC = () => {
                                     <div className="flex flex-wrap gap-2 text-[10px]">
                                        {member.skills.map((skill: any) => (
                                           <span key={skill} className="px-3 py-1 bg-background-soft border border-black/5 font-bold uppercase tracking-tighter text-black">
-                                             {JOB_SKILLS.find(ks => ks.key === skill)?.label}
+                                             {JOB_SKILLS.find(ks => ks.id === skill)?.label}
                                           </span>
                                        ))}
                                     </div>
@@ -690,7 +785,67 @@ export const SettingsModule: React.FC = () => {
                   </div>
                )}
 
-               {activeSection === 'security' && (user?.role === 'admin' || user?.role === 'gerant') && (
+                               {activeSection === 'skills' && (
+                   <div className="space-y-8 animate-fade-up">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end border-b border-steel pb-6 text-black gap-4">
+                         <div className="space-y-1">
+                            <p className="text-[9px] text-luxury font-bold tracking-[0.2em] uppercase">RÉFÉRENTIEL</p>
+                            <h3 className="text-2xl lg:text-3xl text-editorial-title">Compétences Métiers</h3>
+                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                         <div className="space-y-6">
+                            <div className="p-8 border border-black bg-background-soft space-y-6">
+                               <p className="text-[10px] font-bold uppercase tracking-widest text-luxury">Nouvelle Expertise</p>
+                               <div className="space-y-4">
+                                  <div className="space-y-2">
+                                     <label className="text-[9px] font-bold uppercase tracking-widest opacity-40">NOM DE LA COMPÉTENCE</label>
+                                     <input 
+                                        type="text"
+                                        placeholder="Ex: Coiffeur"
+                                        value={newSkillLabel}
+                                        onChange={(e) => setNewSkillLabel(e.target.value)}
+                                        className="w-full bg-white border border-black/10 px-4 py-3 text-sm font-serif italic outline-none focus:border-black transition-all"
+                                     />
+                                  </div>
+                                  <button 
+                                     onClick={handleAddSkill}
+                                     className="btn-premium w-full py-4 text-[10px] flex items-center justify-center gap-3"
+                                  >
+                                     <Plus size={16} /> AJOUTER AU RÉFÉRENTIEL
+                                  </button>
+                               </div>
+                            </div>
+                         </div>
+                         <div className="lg:col-span-2">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {JOB_SKILLS.map((skill) => (
+                                   <div key={skill.id} className="group bg-white border border-black p-6 flex items-center justify-between hover:shadow-lg transition-all">
+                                      <div className="flex items-center gap-4">
+                                         <div className="w-10 h-10 bg-background-soft flex items-center justify-center text-luxury">
+                                            <Award size={20} />
+                                         </div>
+                                         <div className="space-y-0.5">
+                                            <p className="text-sm font-serif italic font-bold text-black">{skill.label}</p>
+                                            <p className="text-[8px] font-bold uppercase tracking-widest opacity-30">ID: {skill.id}</p>
+                                         </div>
+                                      </div>
+                                      <button 
+                                         onClick={() => handleRemoveSkill(skill.id, skill.label)}
+                                         className="p-2 text-black/20 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                                      >
+                                         <Trash2 size={16} />
+                                      </button>
+                                   </div>
+                                ))}
+                             </div>
+                         </div>
+                      </div>
+                   </div>
+                )}
+
+                {activeSection === 'security' && (user?.role === 'admin' || user?.role === 'gerant') && (
                   <div className="space-y-12">
                      <div className="border-b border-steel pb-6 text-black">
                         <p className="text-[9px] text-luxury font-bold tracking-[0.2em] uppercase mb-1">ACCÈS ET PERMISSIONS</p>
@@ -833,11 +988,24 @@ export const SettingsModule: React.FC = () => {
                               {customImage || selectedImage ? <img src={customImage || selectedImage} className="w-full h-full object-cover" /> : <ImageIcon className="opacity-20" size={32} />}
                               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'service')} />
                            </div>
-                           <div className="grid grid-cols-4 gap-2">
+                           <div className="grid grid-cols-4 gap-2 h-32 overflow-y-auto custom-scrollbar p-1">
                               {PRESETS.map(p => (
-                                 <button key={p.name} type="button" onClick={() => { setSelectedImage(p.url); setCustomImage(null); }} className={`aspect-square border ${selectedImage === p.url && !customImage ? 'border-black ring-2 ring-black ring-offset-2' : 'border-steel opacity-40'}`}>
-                                    <img src={p.url} className="w-full h-full object-cover" />
-                                 </button>
+                                 <div key={p.id} className="relative group/preset">
+                                    <button 
+                                       type="button" 
+                                       onClick={() => { setSelectedImage(p.url); setCustomImage(null); }} 
+                                       className={`w-full aspect-square border transition-all ${selectedImage === p.url && !customImage ? 'border-black ring-2 ring-black ring-offset-2' : 'border-steel opacity-40 hover:opacity-100'}`}
+                                    >
+                                       <img src={p.url} className="w-full h-full object-cover" />
+                                    </button>
+                                    <button 
+                                       type="button"
+                                       onClick={(e) => handleRemovePreset(e, p.id)}
+                                       className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/preset:opacity-100 transition-opacity shadow-lg"
+                                    >
+                                       <Plus size={10} className="rotate-45" />
+                                    </button>
+                                 </div>
                               ))}
                            </div>
                         </div>
@@ -940,8 +1108,8 @@ export const SettingsModule: React.FC = () => {
                               <div className="space-y-3">
                                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Compétences {staffSystemRole === 'gerant' ? '(Optionnel)' : '(Obligatoire)'}</label>
                                  <div className="flex flex-wrap gap-2">
-                                    {JOB_SKILLS.map((skill: { key: JobSkill; label: string }) => (
-                                       <button key={skill.key} type="button" onClick={() => staffSkills.includes(skill.key) ? setStaffSkills(staffSkills.filter((s: JobSkill) => s !== skill.key)) : setStaffSkills([...staffSkills, skill.key])} className={`px-3 py-1 text-[8px] font-bold uppercase border ${staffSkills.includes(skill.key) ? 'bg-luxury text-white border-luxury' : 'border-black/10'}`}>
+                                    {JOB_SKILLS.map((skill: any) => (
+                                       <button key={skill.id} type="button" onClick={() => staffSkills.includes(skill.id) ? setStaffSkills(staffSkills.filter((s: string) => s !== skill.id)) : setStaffSkills([...staffSkills, skill.id])} className={`px-3 py-1 text-[8px] font-bold uppercase border ${staffSkills.includes(skill.id) ? 'bg-luxury text-white border-luxury' : 'border-black/10'}`}>
                                           {skill.label}
                                        </button>
                                     ))}

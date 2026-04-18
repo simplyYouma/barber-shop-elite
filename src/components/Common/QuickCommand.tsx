@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useClientStore } from '@/store/useClientStore';
-import { Search, UserPlus, X, ChevronRight } from 'lucide-react';
+import { Search, UserPlus, X, ChevronRight, Plus } from 'lucide-react';
 
 interface QuickCommandProps {
   onSelectClient: (client: { id: string, name: string } | null) => void;
@@ -50,7 +50,7 @@ export const QuickCommand: React.FC<QuickCommandProps> = ({ onSelectClient, onOp
             onClick={() => setIsOpen(!isOpen)}
             className={`flex items-center gap-3 px-6 py-3 transition-all duration-300 ${isOpen ? 'bg-black text-white' : 'bg-background-soft border border-black/5 hover:border-black text-black'}`}
          >
-            <Search size={14} className={isOpen ? 'scale-110' : ''} />
+            <Plus size={14} className={isOpen ? 'scale-110' : ''} />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Enregistrer</span>
          </button>
 

@@ -21,7 +21,7 @@ export const AgendaModule: React.FC = () => {
   const { services } = useServiceStore();
   const { showToast, showAlert } = useNotificationStore();
   const { appointments, addAppointment, updateAppointment, deleteAppointment } = useAppointmentStore();
-  const { syncAppointmentToQueue, removeAppointmentFromQueue } = useQueueStore();
+  const { removeAppointmentFromQueue } = useQueueStore();
   
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<any>(null);
@@ -53,10 +53,12 @@ export const AgendaModule: React.FC = () => {
   const nextPeriod = () => setCurrentDate(addDays(currentDate, view === 'week' ? 7 : 1));
   const prevPeriod = () => setCurrentDate(addDays(currentDate, view === 'week' ? -7 : -1));
 
-  const handleCellClick = (day: Date, hour: number) => {
+  const handleCellClick = (day: Date, hour: number, forceOpen = false) => {
     const slotDate = new Date(day);
     slotDate.setHours(hour);
-    if (isBefore(slotDate, startOfHour(new Date()))) return; 
+    // On bloque seulement si c'est un clic direct sur une cellule du passé
+    // Si c'est le bouton "Nouveau RdV" (forceOpen), on laisse passer
+    if (!forceOpen && isBefore(slotDate, startOfHour(new Date()))) return; 
 
     setEditingAppointment(null);
     setSelectedDay(day);
@@ -70,7 +72,9 @@ export const AgendaModule: React.FC = () => {
   const handleSaveAppointment = async () => {
     if (!selectedClient || !appointmentData.serviceId) return;
 
-    const id = editingAppointment?.id || Math.random().toString(36).substr(2, 9);
+    const id = editingAppointment?.id || Math.random().toString(36).substring(2, 9);
+    const selectedService = services.find(s => s.id === appointmentData.serviceId);
+
     const apptPayload = {
       id,
       day: selectedDay?.toISOString() || new Date().toISOString(),
@@ -78,6 +82,7 @@ export const AgendaModule: React.FC = () => {
       clientName: selectedClient.name,
       serviceId: appointmentData.serviceId,
       serviceName: appointmentData.serviceName,
+      price: selectedService?.price || 0,
       staffId: appointmentData.staffId,
       staffName: appointmentData.staffName,
       note: appointmentData.note
@@ -91,9 +96,6 @@ export const AgendaModule: React.FC = () => {
        showToast('Rendez-vous planifié', 'success');
     }
     
-    // Synchro Queue
-    await syncAppointmentToQueue(apptPayload);
-
     setShowAppointmentModal(false);
     setEditingAppointment(null);
     setSearchTerm('');
@@ -244,7 +246,7 @@ export const AgendaModule: React.FC = () => {
           </div>
 
           <button 
-            onClick={() => handleCellClick(currentDate, 9)}
+            onClick={() => handleCellClick(currentDate, 9, true)}
             className="btn-premium px-6 py-3 flex items-center gap-2"
           >
             <Plus size={16} /> <span>NOUVEAU RDV</span>
@@ -310,7 +312,7 @@ export const AgendaModule: React.FC = () => {
                                   }}
                                   className={`relative flex-1 p-2 flex flex-col justify-between border-l-2 shadow-md animate-fade-up z-10 overflow-hidden cursor-pointer group/appt hover:scale-[1.02] hover:z-20 transition-all ${
                                     isCompleted 
-                                      ? 'bg-green-50 text-green-800 border-green-400' 
+                                      ? 'bg-slate-50/50 text-slate-400 border-green-200/40 opacity-70 grayscale-[0.5]' 
                                       : isOverdue 
                                         ? 'bg-red-50 text-red-800 border-red-400'
                                         : 'bg-black text-white border-luxury'
@@ -400,18 +402,26 @@ export const AgendaModule: React.FC = () => {
                   )}
                   <div className="flex flex-col gap-2 pt-4 border-t border-steel mt-auto">
                      <div className="flex gap-2">
-                        <button 
-                           onClick={(e) => handleEditAppointmentLocal(hoveredAppt, e)}
-                           className="flex-1 bg-black text-white py-3 flex items-center justify-center gap-2 text-[9px] font-bold uppercase tracking-widest hover:bg-luxury transition-all"
-                        >
-                           <Edit3 size={12} /> MODIFIER
-                        </button>
-                        <button 
-                           onClick={(e) => handleDeleteAppointmentLocal(hoveredAppt.id, e)}
-                           className="bg-red-500 text-white p-3 hover:bg-black transition-all"
-                        >
-                           <Trash2 size={14} />
-                        </button>
+                        {hoveredAppt.status !== 'completed' && (
+                           <button 
+                              onClick={(e) => handleEditAppointmentLocal(hoveredAppt, e)}
+                              className="flex-1 bg-black text-white py-3 flex items-center justify-center gap-2 text-[9px] font-bold uppercase tracking-widest hover:bg-luxury transition-all"
+                           >
+                              <Edit3 size={12} /> MODIFIER
+                           </button>
+                        )}
+                        {hoveredAppt.status !== 'completed' ? (
+                           <button 
+                              onClick={(e) => handleDeleteAppointmentLocal(hoveredAppt.id, e)}
+                              className="bg-red-500 text-white p-3 hover:bg-black transition-all"
+                           >
+                              <Trash2 size={14} />
+                           </button>
+                        ) : (
+                           <div className="flex-1 py-3 bg-background-soft border border-steel/20 text-luxury text-[8px] font-bold uppercase tracking-widest text-center flex items-center justify-center gap-2 animate-fade-in grayscale">
+                              <CheckCircle2 size={10} /> Prestation Archivée
+                           </div>
+                        )}
                   </div>
                </div>
             </div>

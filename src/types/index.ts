@@ -7,7 +7,7 @@ export interface User {
   avatar?: string;
 }
 
-export type JobSkill = 'barbier' | 'coiffeur' | 'masseur' | 'facialiste' | 'onglerie';
+export type JobSkill = string;
 
 export interface StaffMember {
   id: string;
