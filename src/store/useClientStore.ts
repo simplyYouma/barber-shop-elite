@@ -51,6 +51,17 @@ export const useClientStore = create<ClientState>((set, get) => ({
   addClient: async (client) => {
     try {
       const db = await getDb();
+      
+      // Vérification des doublons (Nom + Téléphone)
+      const existing = get().clients.find(c => 
+         c.name.trim().toLowerCase() === client.name.trim().toLowerCase() && 
+         (c.phone?.trim() || '') === (client.phone?.trim() || '')
+      );
+      
+      if (existing) {
+         throw new Error('DOUBLON_DETECTE');
+      }
+
       const id = Math.random().toString(36).substr(2, 9);
       const now = new Date().toISOString();
       
@@ -88,6 +99,24 @@ export const useClientStore = create<ClientState>((set, get) => ({
       if (!current) return;
 
       const merged = { ...current, ...updates };
+
+      // On ne vérifie les doublons que si le nom ou le téléphone sont modifiés
+      // et on ignore la vérification si on est en train de supprimer le client
+      const isDeleting = updates.is_deleted === true;
+      const nameChanged = updates.name !== undefined && updates.name !== current.name;
+      const phoneChanged = updates.phone !== undefined && updates.phone !== current.phone;
+
+      if (!isDeleting && (nameChanged || phoneChanged)) {
+         const existing = get().clients.find(c => 
+            c.id !== id &&
+            c.name.trim().toLowerCase() === merged.name.trim().toLowerCase() && 
+            (c.phone?.trim() || '') === (merged.phone?.trim() || '')
+         );
+         
+         if (existing) {
+            throw new Error('DOUBLON_DETECTE');
+         }
+      }
       
       await db.execute(
         'UPDATE clients SET name = ?, phone = ?, avatar = ?, is_deleted = ? WHERE id = ?',

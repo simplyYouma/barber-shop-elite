@@ -19,9 +19,31 @@ import { EliteAlert } from '@/components/Common/EliteAlert';
 import { LiveQueueWidget } from '@/components/Common/LiveQueueWidget';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { isAfter } from 'date-fns';
+import { isAfter, format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 type Tab = 'pos' | 'clients' | 'dashboard' | 'agenda' | 'settings';
+
+const DigitalClock = () => {
+  const [time, setTime] = useState(new Date());
+  
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="hidden xl:flex flex-col items-end border-r border-steel pr-8 animate-fade-in">
+       <div className="flex items-center gap-2 text-black">
+          <Clock size={12} className="opacity-20" />
+          <p className="text-xl font-serif italic text-black leading-none">{format(time, 'HH:mm:ss')}</p>
+       </div>
+       <p className="text-[8px] text-luxury font-bold uppercase tracking-[0.2em] mt-1">{format(time, 'EEEE dd MMMM', { locale: fr })}</p>
+    </div>
+  );
+};
 
 function App() {
   const { user, isAuthenticated, logout, permissions } = useAuthStore();
@@ -97,13 +119,18 @@ function App() {
      const now = new Date();
      const upcoming = appointments
         .filter(appt => {
+           // On ne prend que les RDV confirmés (pas annulés ni terminés)
+           if (appt.status !== 'confirmed') return false;
+           
            const apptDate = new Date(appt.day);
            apptDate.setHours(appt.hour, 0, 0, 0);
+           
+           // Le RDV doit être strictement dans le futur par rapport à maintenant
            return isAfter(apptDate, now);
         })
         .sort((a, b) => {
-           const dateA = new Date(a.day); dateA.setHours(a.hour);
-           const dateB = new Date(b.day); dateB.setHours(b.hour);
+           const dateA = new Date(a.day); dateA.setHours(a.hour, 0, 0, 0);
+           const dateB = new Date(b.day); dateB.setHours(b.hour, 0, 0, 0);
            return dateA.getTime() - dateB.getTime();
         });
      return upcoming[0] || null;
@@ -270,6 +297,7 @@ function App() {
                   </div>
                   
                   <div className="flex items-center gap-4 md:gap-8">
+                     <DigitalClock />
                      <QuickCommand 
                         onSelectClient={handleQuickClientSelect}
                         onOpenNewClient={() => {
@@ -305,7 +333,7 @@ function App() {
                   {activeTab === 'clients' && userPermissions?.clients && <ClientsModule />}
                   {activeTab === 'dashboard' && userPermissions?.dashboard && <DashboardModule />}
                   {activeTab === 'agenda' && userPermissions?.agenda && <AgendaModule />}
-                  {activeTab === 'settings' && userPermissions?.settings && <SettingsModule />}
+                  {activeTab === 'settings' && userPermissions?.settings && <SettingsModule onCollapseSidebar={setIsCollapsed} />}
                </main>
             </div>
 

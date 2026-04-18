@@ -41,15 +41,20 @@ export const useQueueStore = create<QueueState>((set, get) => ({
       
       // AUTO-SYNC STAFF AVAILABILITY
       // Si un barbier est marqué "Occupé" mais n'a pas de session 'in_progress' dans la file, on l'aide à se libérer
-      const { staff, updateStaff } = useStaffStore.getState();
+      const { staff, updateStaff, fetchStaff } = useStaffStore.getState();
       const inProgressBarbers = new Set(result.filter(i => i.status === 'in_progress').map(i => i.barber_name));
       
+      let staffChanged = false;
       for (const s of staff) {
          if (!s.isAvailable && !inProgressBarbers.has(s.name) && !s.isBlocked) {
-            // Il est marqué occupé mais n'a aucune session active et n'est pas bloqué manuellement
-            // On le libère pour corriger les états "fantômes"
             await updateStaff(s.id, { isAvailable: true });
+            staffChanged = true;
          }
+      }
+
+      // Si des changements ont eu lieu, on s'assure que le store staff est à jour
+      if (staffChanged) {
+         await fetchStaff();
       }
     } catch (error) {
       console.error('Failed to fetch queue:', error);
@@ -83,13 +88,34 @@ export const useQueueStore = create<QueueState>((set, get) => ({
       const scheduled_at = new Date(appt.day);
       scheduled_at.setHours(appt.hour, 0, 0, 0);
       const scheduledStr = scheduled_at.toISOString();
+
+      // Si le RdV est déjà terminé ou annulé dans l'agenda, on s'assure qu'il n'est plus dans la file active
+      if (appt.status === 'completed' || appt.status === 'cancelled') {
+         await db.execute('DELETE FROM queue WHERE appointment_id = ?', [appt.id]);
+         await get().fetchQueue();
+         return;
+      }
       const now = new Date().toISOString();
+
+      let finalPrice = appt.price || 0;
+      
+      // Fallback : Si le prix est à 0 ou absent, on essaie de le retrouver via le nom du service
+      if (!finalPrice && appt.serviceName) {
+         try {
+            const serviceResults: any[] = await db.select('SELECT price FROM services WHERE name = ?', [appt.serviceName]);
+            if (serviceResults.length > 0) {
+               finalPrice = serviceResults[0].price;
+            }
+         } catch (e) {
+            console.warn('Fallback price lookup failed:', e);
+         }
+      }
 
       if (existing.length > 0) {
         // Update
         await db.execute(
-          'UPDATE queue SET service_name = ?, barber_name = ?, scheduled_at = ? WHERE appointment_id = ?',
-          [appt.serviceName, appt.staffName, scheduledStr, appt.id]
+          'UPDATE queue SET service_name = ?, price = ?, barber_name = COALESCE(NULLIF(?, ""), barber_name), scheduled_at = ? WHERE appointment_id = ?',
+          [appt.serviceName, finalPrice, appt.staffName || '', scheduledStr, appt.id]
         );
       } else {
         // Insert
@@ -102,7 +128,7 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 
         await db.execute(
           'INSERT OR REPLACE INTO queue (id, client_id, service_name, price, status, position, barber_name, created_at, appointment_id, scheduled_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [id, clientId, appt.serviceName, 0, 'scheduled', position, appt.staffName, now, appt.id, scheduledStr]
+          [id, clientId, appt.serviceName, finalPrice, 'scheduled', position, appt.staffName, now, appt.id, scheduledStr]
         );
       }
       await get().fetchQueue();
@@ -137,12 +163,23 @@ export const useQueueStore = create<QueueState>((set, get) => ({
           
           // Supprimer de la file active
           await db.execute('DELETE FROM queue WHERE id = ?', [id]);
+
+          // Mettre à jour le statut dans l'Agenda (Zustand)
+          if (item.appointment_id) {
+             const { useAppointmentStore } = await import('./useAppointmentStore');
+             useAppointmentStore.getState().updateStatusOnly(item.appointment_id, status as any);
+          }
+
           await logAction(
              status === 'completed' ? 'SERVICE_FIN' : 'SERVICE_ANNULER', 
              'queue', 
              id, 
              `${status === 'completed' ? 'Clôture' : 'Annulation'} de la prestation : ${item.service_name}`
           );
+
+          // MISE À JOUR INSTANTANÉE DE L'HISTORIQUE
+          const { useArchiveStore } = await import('./useArchiveStore');
+          await useArchiveStore.getState().fetchArchives();
        } else {
           // Mise à jour simple (ex: démarrage de la coupe)
           await db.execute(

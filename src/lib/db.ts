@@ -290,6 +290,12 @@ export async function initDatabase() {
        }
     }
 
+    // =============================================
+    // MAINTENANCE (Nettoyage automatique)
+    // =============================================
+    // Archivage automatique du journal d'audit (Supprime logs > 30 jours)
+    await db.execute("DELETE FROM audit_logs WHERE created_at < DATETIME('now', '-30 days')");
+
     console.log('[DB] Success: SQLite Core fully restored and initialized.');
     return db;
   } catch (error) {

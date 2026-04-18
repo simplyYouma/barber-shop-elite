@@ -16,7 +16,7 @@ export const EliteReceipt: React.FC<EliteReceiptProps> = ({ item, id = "receipt-
     <div 
       id={id}
       className="w-[350px] bg-white p-10 font-sans text-black flex flex-col items-center border border-black/5 shadow-2xl relative"
-      style={{ minHeight: '480px' }}
+      style={{ minHeight: '520px' }}
     >
       {/* Header */}
       <div className="flex flex-col items-center mb-10">
@@ -64,13 +64,14 @@ export const EliteReceipt: React.FC<EliteReceiptProps> = ({ item, id = "receipt-
         </div>
       </div>
 
-      {/* Total Section */}
-      <div className="w-full mt-auto mb-16 relative">
+      {/* Total Section - Updated Layout: Net en haut, Prix en bas */}
+      <div className="w-full mt-auto mb-12 relative">
         <div className="absolute -top-4 left-0 w-full h-[1px] bg-black/10 border-t border-dashed border-black/20" />
-        <div className="flex justify-between items-center pt-8">
-          <span className="text-xl font-editorial-title uppercase tracking-widest">Net à Payer</span>
-          <div className="text-right">
-             <span className="text-3xl font-bold tabular-nums">{(item.price || 0).toLocaleString()} <span className="text-xs uppercase font-bold text-luxury">{settings.currency}</span></span>
+        <div className="pt-8 flex flex-col items-center gap-3">
+          <span className="text-[13px] font-editorial-title uppercase tracking-[0.5em] text-black/40">Net à Payer</span>
+          <div className="flex flex-col items-center">
+             <span className="text-5xl font-bold tabular-nums tracking-tighter">{(item.price || 0).toLocaleString()}</span>
+             <span className="text-[10px] uppercase font-bold text-luxury tracking-[0.3em] mt-1">{settings.currency}</span>
           </div>
         </div>
       </div>

@@ -295,7 +295,7 @@ export const LiveQueueWidget: React.FC = () => {
                                     </div>
                                     <div>
                                        <p className="text-[9px] font-bold uppercase tracking-widest text-luxury/40 mb-1">
-                                          {item.barber_name}
+                                          {item.barber_name || "Non assigné"}
                                        </p>
                                        <p className="text-xl font-serif italic text-black truncate max-w-[180px]">
                                           {item.client_name || item.client_id}

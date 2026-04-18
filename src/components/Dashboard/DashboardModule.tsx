@@ -4,6 +4,7 @@ import {
   ChevronRight, FileText, FileSpreadsheet, Clock, Search, Star, X
 } from 'lucide-react';
 import { useArchiveStore } from '@/store/useArchiveStore';
+import { useNotificationStore } from '@/store/useNotificationStore';
 import { PrestationsChart } from './PrestationsChart';
 import { ShareCenterModal } from '@/components/Common/ShareCenterModal';
 import { ExportService } from '@/lib/ExportService';
@@ -25,9 +26,11 @@ export const DashboardModule = () => {
   const [selectedItemForTicket, setSelectedItemForTicket] = useState<ArchiveItem | null>(null);
 
   // États pour le filtrage
-  const [period, setPeriod] = useState<FilterPeriod>('month');
-  const [startDate, setStartDate] = useState(format(subMonths(new Date(), 1), 'yyyy-MM-dd'));
+  const [period, setPeriod] = useState<FilterPeriod>('today');
+  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [searchTerm, setSearchTerm] = useState('');
+  const { showToast } = useNotificationStore();
 
   // Calcul du temps écoulé
   const getDurationSeconds = (start: string, end?: string) => {
@@ -64,9 +67,14 @@ export const DashboardModule = () => {
 
     return archives.filter(item => {
       const date = parseISO(item.created_at);
-      return isWithinInterval(date, interval);
+      const matchesDate = isWithinInterval(date, interval);
+      
+      const searchStr = `${item.client_name || ''} ${item.service_name || ''} ${item.barber_name || ''}`.toLowerCase();
+      const matchesSearch = searchStr.includes(searchTerm.toLowerCase());
+      
+      return matchesDate && matchesSearch;
     });
-  }, [archives, period, startDate, endDate]);
+  }, [archives, period, startDate, endDate, searchTerm]);
 
   // Statistiques calculées
   const stats = useMemo(() => {
@@ -147,16 +155,26 @@ export const DashboardModule = () => {
     };
   }, [filteredData]);
 
-  const handleExportExcel = () => {
-    const title = `Rapport_${period}_${format(new Date(), 'yyyy-MM-dd')}`;
-    ExportService.exportToExcel(filteredData, title);
-  };
+   const handleExportExcel = () => {
+     try {
+       const title = `Archives_${period}_${format(new Date(), 'dd-MM-yyyy')}`;
+       ExportService.exportToExcel(filteredData, title);
+       showToast(`Export Excel réussi (${filteredData.length} records)`, 'success');
+     } catch (e) {
+       showToast('Erreur lors de l\'export Excel', 'error');
+     }
+   };
 
-  const handleExportPDF = () => {
-    const title = `Rapport d'Activité - Période: ${period.toUpperCase()}`;
-    const filename = `Rapport_${period}_${format(new Date(), 'yyyy-MM-dd')}`;
-    ExportService.exportToPDF(filteredData, title, filename);
-  };
+   const handleExportPDF = () => {
+     try {
+       const title = `Rapport d'Activité - ${period.toUpperCase()}`;
+       const filename = `Rapport_${period}_${format(new Date(), 'dd-MM-yyyy')}.pdf`;
+       ExportService.exportToPDF(filteredData, title, filename);
+       showToast('Rapport PDF généré avec succès', 'success');
+     } catch (e) {
+       showToast('Erreur lors de la génération du PDF', 'error');
+     }
+   };
 
   const recentActivity = filteredData
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -176,77 +194,110 @@ export const DashboardModule = () => {
     <>
       <div className="flex flex-col gap-8 animate-fade-up">
         {/* Navigation Interne */}
-        <div className="flex gap-10 border-b border-steel pb-0">
-          <button 
-              onClick={() => setActiveTab('analytics')}
-              className={`pb-4 text-[11px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'analytics' ? 'text-black' : 'text-luxury hover:text-black opacity-40'}`}
-          >
-              Analyses & KPIs
-              {activeTab === 'analytics' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-black animate-slide-right" />}
-          </button>
-          <button 
-              onClick={() => setActiveTab('history')}
-              className={`pb-4 text-[11px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'history' ? 'text-black' : 'text-luxury hover:text-black opacity-40'}`}
-          >
-              Historique & Archives
-              {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-black animate-slide-right" />}
-          </button>
+        <div className="flex justify-between items-end border-b border-steel pb-0">
+          <div className="flex gap-10">
+            <button 
+                onClick={() => setActiveTab('analytics')}
+                className={`pb-4 text-[11px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'analytics' ? 'text-black' : 'text-luxury hover:text-black opacity-40'}`}
+            >
+                Analyses & KPIs
+                {activeTab === 'analytics' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-black animate-slide-right" />}
+            </button>
+            <button 
+                onClick={() => setActiveTab('history')}
+                className={`pb-4 text-[11px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'history' ? 'text-black' : 'text-luxury hover:text-black opacity-40'}`}
+            >
+                Historique & Archives
+                {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-black animate-slide-right" />}
+            </button>
+          </div>
+          
+          {activeTab === 'history' && (
+            <div className="flex gap-2 pb-2 animate-fade-in">
+                <button 
+                  onClick={handleExportExcel} 
+                  title="Exporter vers Excel"
+                  className="flex items-center gap-2 px-6 py-2 bg-[#217346] text-white border border-[#217346] hover:bg-white hover:text-[#217346] transition-all text-[9px] font-bold uppercase tracking-widest shadow-sm"
+                >
+                  <FileSpreadsheet size={14} /> EXCEL
+                </button>
+                <button 
+                  onClick={handleExportPDF} 
+                  title="Générer un rapport PDF"
+                  className="flex items-center gap-2 px-6 py-2 bg-[#e67e22] text-white border border-[#e67e22] hover:bg-white hover:text-[#e67e22] transition-all text-[9px] font-bold uppercase tracking-widest shadow-sm"
+                >
+                  <FileText size={14} /> PDF
+                </button>
+            </div>
+          )}
+        </div>
+
+        {/* Filtres Globaux */}
+        <div className="flex flex-wrap items-center justify-between gap-6 bg-white border border-black p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+              <div className="p-2 bg-background-soft border border-black/10">
+                <Filter size={16} />
+              </div>
+              <div className="flex gap-0 border border-black overflow-hidden rounded-sm">
+                {[
+                    { id: 'today', label: 'AUJOURD\'HUI' },
+                    { id: 'month', label: 'CE MOIS' },
+                    { id: 'semester', label: '6 MOIS' },
+                    { id: 'year', label: 'CETTE ANNÉE' },
+                    { id: 'custom', label: 'CALENDRIER' },
+                ].map((p) => (
+                    <button 
+                      key={p.id}
+                      onClick={() => setPeriod(p.id as FilterPeriod)}
+                      className={`px-4 py-2 text-[9px] font-bold uppercase tracking-widest transition-all ${period === p.id ? 'bg-black text-white' : 'bg-white text-black hover:bg-background-soft border-l border-black first:border-l-0'}`}
+                    >
+                      {p.label}
+                    </button>
+                ))}
+              </div>
+          </div>
+
+          {period === 'custom' && (
+              <div className="flex items-center gap-3 animate-fade-up">
+                <div className="flex flex-col">
+                  <span className="text-[7px] font-bold text-luxury uppercase mb-1">Début</span>
+                  <input 
+                      type="date" 
+                      lang="fr-FR"
+                      value={startDate} 
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="bg-background-soft border border-black p-2 text-[10px] font-bold outline-none" 
+                  />
+                </div>
+                <ChevronRight size={14} className="opacity-20 mt-4" />
+                <div className="flex flex-col">
+                  <span className="text-[7px] font-bold text-luxury uppercase mb-1">Fin</span>
+                  <input 
+                      type="date"
+                      lang="fr-FR"
+                      value={endDate} 
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="bg-background-soft border border-black p-2 text-[10px] font-bold outline-none" 
+                  />
+                </div>
+              </div>
+          )}
+
+          {activeTab === 'history' && (
+            <div className="flex-1 lg:max-w-xs relative hidden sm:block animate-fade-in">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-20" />
+                <input 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-background-soft border border-black/10 text-[10px] font-bold uppercase outline-none focus:border-black transition-all" 
+                  placeholder="Rechercher (Client, Prestation, Barbier)..." 
+                />
+            </div>
+          )}
         </div>
 
         {activeTab === 'analytics' && (
           <div className="space-y-12">
-              {/* Filtres */}
-              <div className="flex flex-wrap items-center justify-between gap-6 bg-white border border-black p-6 shadow-sm">
-                <div className="flex items-center gap-4">
-                    <div className="p-2 bg-background-soft border border-black/10">
-                      <Filter size={16} />
-                    </div>
-                    <div className="flex gap-0 border border-black overflow-hidden rounded-sm">
-                      {[
-                          { id: 'today', label: 'JOUR' },
-                          { id: 'month', label: 'MOIS' },
-                          { id: 'semester', label: 'SEMESTRE' },
-                          { id: 'year', label: 'ANNÉE' },
-                          { id: 'custom', label: 'PERSO' },
-                      ].map((p) => (
-                          <button 
-                            key={p.id}
-                            onClick={() => setPeriod(p.id as FilterPeriod)}
-                            className={`px-4 py-2 text-[9px] font-bold uppercase tracking-widest transition-all ${period === p.id ? 'bg-black text-white' : 'bg-white text-black hover:bg-background-soft border-l border-black first:border-l-0'}`}
-                          >
-                            {p.label}
-                          </button>
-                      ))}
-                    </div>
-                </div>
-
-                {period === 'custom' && (
-                    <div className="flex items-center gap-3 animate-fade-up">
-                      <input 
-                          type="date" 
-                          value={startDate} 
-                          onChange={(e) => setStartDate(e.target.value)}
-                          className="bg-background-soft border border-black p-2 text-[10px] font-bold outline-none" 
-                      />
-                      <ChevronRight size={14} className="opacity-20" />
-                      <input 
-                          type="date" 
-                          value={endDate} 
-                          onChange={(e) => setEndDate(e.target.value)}
-                          className="bg-background-soft border border-black p-2 text-[10px] font-bold outline-none" 
-                      />
-                    </div>
-                )}
-
-                <div className="flex gap-2">
-                    <button onClick={handleExportExcel} className="flex items-center gap-2 px-4 py-2 border border-black hover:bg-black hover:text-white transition-all text-[9px] font-bold uppercase tracking-widest bg-white">
-                      <FileSpreadsheet size={14} /> EXCEL
-                    </button>
-                    <button onClick={handleExportPDF} className="flex items-center gap-2 px-4 py-2 bg-black text-white hover:bg-white hover:text-black hover:border-black transition-all text-[9px] font-bold uppercase tracking-widest border border-black">
-                      <FileText size={14} /> PDF
-                    </button>
-                </div>
-              </div>
 
               {/* KPIs */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -405,23 +456,12 @@ export const DashboardModule = () => {
         )}
 
         {activeTab === 'history' && (
-          <div className="bg-white border border-black flex flex-col shadow-sm border-t-0">
-              <div className="p-8 border-b border-steel flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h3 className="text-2xl text-editorial-title">Historique Complet</h3>
-                    <p className="text-[9px] font-bold uppercase tracking-widest opacity-30 mt-1">Registre des prestations archivées</p>
-                </div>
-                <div className="relative w-full md:w-64">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-20" />
-                    <input className="w-full pl-10 pr-4 py-3 border border-black bg-background-soft text-[10px] font-bold uppercase outline-none focus:border-luxury transition-all" placeholder="Rechercher..." />
-                </div>
-              </div>
-
-              <div className="overflow-x-auto overflow-y-auto max-h-[60vh]">
+          <div className="bg-white border border-black flex flex-col shadow-sm">
+              <div className="overflow-x-auto overflow-y-auto max-h-[70vh] custom-scrollbar">
                 <table className="w-full text-left border-collapse">
                     <thead className="sticky top-0 bg-black text-white z-20">
                       <tr>
-                          <th className="px-8 py-5 text-[9px] font-bold uppercase tracking-widest italic">Date</th>
+                          <th className="px-8 py-5 text-[9px] font-bold uppercase tracking-widest italic">Date & Heures</th>
                           <th className="px-8 py-5 text-[9px] font-bold uppercase tracking-widest italic">Client</th>
                           <th className="px-8 py-5 text-[9px] font-bold uppercase tracking-widest italic text-center">Ticket</th>
                           <th className="px-8 py-5 text-[9px] font-bold uppercase tracking-widest italic">Barbier</th>
@@ -429,9 +469,16 @@ export const DashboardModule = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-steel">
-                      {archives.map((item) => (
+                      {filteredData.length > 0 ? filteredData.map((item) => (
                           <tr key={item.id} className="hover:bg-background-soft transition-all group">
-                            <td className="px-8 py-4 text-[10px] font-bold italic opacity-40 tabular-nums">{format(parseISO(item.created_at), 'dd/MM/yyyy')}</td>
+                            <td className="px-8 py-4 text-[10px] font-bold italic opacity-40 tabular-nums">
+                                {format(parseISO(item.created_at), 'dd/MM/yyyy')}
+                                <span className="block text-[8px] mt-1 not-italic uppercase tracking-tighter whitespace-nowrap">
+                                   <span className="text-black font-black">{item.started_at ? format(parseISO(item.started_at), 'HH:mm') : '--:--'}</span>
+                                   <span className="mx-2 opacity-30">→</span>
+                                   <span className="text-luxury font-black">{item.archived_at ? format(parseISO(item.archived_at), 'HH:mm') : '--:--'}</span>
+                                </span>
+                            </td>
                             <td className="px-8 py-4">
                                 <p className="text-[11px] font-bold uppercase tracking-widest">{item.client_name || 'PASSAGE'}</p>
                                 <p className="text-[10px] font-serif italic text-luxury">{item.service_name}</p>
@@ -449,7 +496,13 @@ export const DashboardModule = () => {
                             <td className="px-8 py-4 text-[10px] font-bold uppercase opacity-60 italic">{item.barber_name || 'L\'Équipe'}</td>
                             <td className="px-8 py-4 text-[12px] font-bold text-right tabular-nums">{item.price?.toLocaleString()} F</td>
                           </tr>
-                      ))}
+                      )) : (
+                        <tr>
+                          <td colSpan={5} className="px-8 py-20 text-center">
+                            <p className="text-[10px] font-bold uppercase tracking-widest opacity-20 italic">Aucune donnée archivée sur cette période</p>
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                 </table>
               </div>

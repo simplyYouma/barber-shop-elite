@@ -84,8 +84,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         resetForm();
         onClose();
       }
-    } catch (err) {
-      setError('Une erreur est survenue');
+    } catch (err: any) {
+      if (err.message === 'DOUBLON_DETECTE') {
+        setError('Ce client existe déjà (nom & téléphone identiques)');
+      } else {
+        setError('Une erreur est survenue lors de l\'enregistrement');
+      }
     } finally {
       setIsSubmitting(false);
     }
