@@ -61,8 +61,8 @@ export const ShareCenterModal: React.FC<ShareCenterModalProps> = ({
     try {
       showToast('Préparation du partage WhatsApp...', 'info');
       const result = await TicketService.shareTicketImage('receipt-capture', item);
-      if (result.success) {
-        if (result.method === 'native') {
+      if (result && result.success) {
+        if (result && 'method' in result && result.method === 'native') {
            showToast('Partage natif ouvert', 'success');
         } else {
            showToast('Ouverture WhatsApp Web (Image téléchargée)', 'info');
